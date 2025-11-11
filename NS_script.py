@@ -6,14 +6,14 @@ from tqdm import tqdm
 iterations = 20000
 d_Ns = [30] # These are the widths
 # N_rs = [13, 29, 37, 42, 46, 50, 135]
-N_rs = [3, 135] # Collocation points
+N_rs = [3, 5, 15] # Collocation points
 second_layer_weight_mean = 0
 second_layer_weight_std = 1
 dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # parameters of the PDE
 min_xyt, max_xyt = 0, 1
-nu = 0.0001
+nu = 0.01
 rho = 1
 
 # The real number will be a power
@@ -65,9 +65,10 @@ coll_0_test = torch.stack([x_coll_0_test,y_coll_0_test],dim=-1).reshape(-1,2).to
 
 # initial condition
 def g_in(x,y):
-    u = torch.sin(x) * torch.cos(y)
-    v = -1 * torch.cos(x) * torch.sin(y)
-    return torch.stack((u,v),dim=-1)
+    u = -1 * torch.cos(torch.pi * x) * torch.sin(torch.pi * y)
+    v = torch.sin(torch.pi * x) * torch.cos(torch.pi * y)
+    p = rho / -4 * (torch.cos(2*torch.pi*x)+torch.cos(2*torch.pi*y))
+    return torch.stack((u,v, p),dim=-1)
 
 class TanhCubed(torch.nn.Module):
     def forward(self, x):
@@ -144,7 +145,7 @@ def train(N, N_r):
       y_mom_loss = loss_choice(y_mom, torch.zeros_like(y_mom)) # y momentum loss
       cont_loss = loss_choice(cont, torch.zeros_like(cont)) # continuity loss
 
-      u0 = N(torch.stack((x_0,y_0,torch.zeros_like(x_0)),dim=-1))[...,:2]
+      u0 = N(torch.stack((x_0,y_0,torch.zeros_like(x_0)),dim=-1))
       initial_loss = loss_choice(u0, g_in(x_0,y_0))
 
       # Compute the PDE loss
@@ -170,7 +171,7 @@ def train(N, N_r):
         x_0_test.requires_grad_(True)
         y_0_test.requires_grad_(True)
 
-        u0_test = N(torch.stack((x_0_test,y_0_test,torch.zeros_like(x_0_test)),dim=-1))[...,:2]
+        u0_test = N(torch.stack((x_0_test,y_0_test,torch.zeros_like(x_0_test)),dim=-1))
         initial_loss_test = loss_choice(u0_test, g_in(x_0_test,y_0_test))
 
         out_test = N(torch.stack((x_test, y_test, t_test),dim=-1))
