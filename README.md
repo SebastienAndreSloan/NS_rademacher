@@ -1,5 +1,5 @@
 # Instructions for training the PINN:
-The parameters for training and the data are defined at the top of the file. The two important ones are the `d_Ns` array and the `N_rs` array, as the program will loop over both of these arrays and train a PINN for each pair.
+The parameters for training and the data are defined at the top of NS_script.py. The two important ones are the `d_Ns` array and the `N_rs` array, as the program will loop over both of these arrays and train a PINN for each pair.
 
 The results are saved using the following two commands:
 `torch.save(net_dict, f"weights_NS_tanh_dNs_{d_Ns}_Nrs_{N_rs}_i_{iterations}.pt")`
