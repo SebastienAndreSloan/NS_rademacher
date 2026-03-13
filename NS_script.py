@@ -3,35 +3,31 @@ import numpy as np
 from torch.autograd import grad
 from tqdm import tqdm
 
-dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 iterations = 20000
 d_Ns = [30] # These are the widths
-N_rs = [3, 5, 15] # Number of collocation points, the real value will be cubed.
+# N_rs = [13, 29, 37, 42, 46, 50, 135]
+N_rs = [3, 4, 5, 6, 7, 8, 9, 10] # Collocation points
 second_layer_weight_mean = 0
 second_layer_weight_std = 1
-tanh3act = True # Set to True to use tanh^3 activation, False for tanh.
+dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # parameters of the PDE
-min_xyt, max_xyt = 0, 1
-nu = 0.01
+min_xyt, max_xyt = 0, 2
+max_t = 1
+nu = 0.001
 rho = 1
 
-# training parameters
-test_rate = 100 # number of test loss computations
-lambda_0 = 1
-lambda_1 = 0.3
-lr = 1e-3
-lambda_s = 0.5
-loss_choice = torch.nn.HuberLoss()
+# The real number will be a power
+# We want ratios of 10 values from 0.25 to 50
+# N_r 5, 15, 25, 35, 50
 
 
-# Collocation points generator
+# Gen coll data here
 def coll_gen(N_r, N_0):
     x_coll_r, y_coll_r, t_coll_r = torch.meshgrid(
           torch.linspace(min_xyt, max_xyt, N_r),
           torch.linspace(min_xyt, max_xyt, N_r),
-          torch.linspace(0, max_xyt - min_xyt, N_r),
+          torch.linspace(0, max_t - min_xyt, N_r),
           indexing = "xy"
       )
     coll_r = torch.stack([x_coll_r,y_coll_r,t_coll_r],dim=-1).reshape(-1,3).to(dev)
@@ -46,16 +42,17 @@ def coll_gen(N_r, N_0):
     return coll_r, coll_0
 
 # ------------ Other Collocation Data ------------------
-N_0 = 20 # squared (Initial condition)
-N_t = 60 # cubed (Test Volume)
-N_0_t = 60 # squared (Test IC)
+# N_r = 50 # cubed
+N_0 = 20 # squared
+N_t = 60 # cubed
+N_0_t = 60 # squared
 
 torch.manual_seed(0)
 np.random.seed(0)
 x_coll_test, y_coll_test, t_coll_test= torch.meshgrid(
           torch.linspace(min_xyt, max_xyt, N_t),
           torch.linspace(min_xyt, max_xyt, N_t),
-          torch.linspace(0, max_xyt - min_xyt, N_t),
+          torch.linspace(0, max_t - min_xyt, N_t),
           indexing = "xy"
       )
 coll_test = torch.stack([x_coll_test,y_coll_test,t_coll_test],dim=-1).reshape(-1,3).to(dev)
@@ -74,10 +71,14 @@ def g_in(x,y):
     p = rho / -4 * (torch.cos(2*torch.pi*x)+torch.cos(2*torch.pi*y))
     return torch.stack((u,v, p),dim=-1)
 
-# Two different activation functions avaliable
 class TanhCubed(torch.nn.Module):
     def forward(self, x):
         return torch.tanh(x) ** 3
+beta = 10**-3
+k = 3
+class ExpReLU(torch.nn.Module):
+    def forward(self, x):
+        return torch.exp(-1 * beta * x**2) * (torch.nn.ReLU()(x) ** k)
 
 class TwoLayerNN(torch.nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -87,12 +88,17 @@ class TwoLayerNN(torch.nn.Module):
         self.activation = TanhCubed()
 
     def forward(self, x):
-        if tanh3act:
-           x = self.activation(self.layer1(x))
-        else:
-            x = torch.tanh(self.layer1(x))
+        x = torch.tanh(self.layer1(x))
         x = self.layer2(x)  # This layer will not be trained
         return x
+
+# training parameters
+test_rate = 100
+lambda_0 = 1
+lambda_1 = 0.3
+lr = 1e-3
+lambda_s = 0.5
+loss_choice = torch.nn.HuberLoss()
 
 def train(N, N_r):
   train_loss = np.zeros(iterations)
@@ -232,5 +238,5 @@ for j in range(num_Nr):
     train_errors[j,k,:], test_errors[j,k,:] = train(NN, N_rs[j])
     net_dict[f"net_Nr_{N_rs[j]}"] = NN.state_dict()
   print("Succefully done net number", j)
-torch.save(net_dict, f"weights_NS_tanh_dNs_{d_Ns}_Nrs_{N_rs}_i_{iterations}.pt")
-np.savez(f"result_NS_tanh_dNs_{d_Ns}_Nrs_{N_rs}_i_{iterations}",train=train_errors,test=test_errors)
+torch.save(net_dict, f"weights_NSvisc0.001_tanh_dNs_{d_Ns}_Nrs_{N_rs}_i_{iterations}.pt")
+np.savez(f"result_NSvisc0.001_tanh_dNs_{d_Ns}_Nrs_{N_rs}_i_{iterations}",train=train_errors,test=test_errors)
