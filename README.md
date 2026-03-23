@@ -11,5 +11,5 @@ In Results.ipynb, The training v testing error plots are done for every `N_rs`, 
 
 To plot the outputs vs the true solution, change the file name to the path to the pytorch weight file, and make sure the net parameters are the same as the net having been trained, including the width of the middle layer below the definition of the neural net class.
 
-# Instructions for plotting the Rademacher bounds:
-To be finished.
+<!---# Instructions for plotting the Rademacher bounds:
+To be finished. --->
